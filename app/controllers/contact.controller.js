@@ -1,51 +1,106 @@
-let contacts = [];
-let nextId = 1;
+const ContactService = require("../services/contact.service");
+const MongoDB = require("../utils/mongodb.util");
+const ApiError = require("../api-error");
 
 // Tạo liên hệ
-exports.create = (req, res) => {
-  const contact = {
-    id: nextId++,
-    ...req.body,
-  };
-  contacts.push(contact);
-  res.status(201).json(contact);
+exports.create = async (req, res, next) => {
+    if (!req.body.name) {
+        return next(new ApiError(400, "Name can not be empty"));
+    }
+
+    try {
+        const contactService = new ContactService(MongoDB.client);
+        const document = await contactService.create(req.body);
+        return res.status(201).json(document);
+    } catch (error) {
+        return next(error);
+    }
 };
 
 // Lấy tất cả liên hệ
-exports.findAll = (req, res) => {
-  res.json(contacts);
+exports.findAll = async (req, res, next) => {
+    try {
+        const contactService = new ContactService(MongoDB.client);
+        const documents = await contactService.find({});
+        return res.json(documents);
+    } catch (error) {
+        return next(error);
+    }
 };
 
-// Lấy một liên hệ
-exports.findOne = (req, res) => {
-  const contact = contacts.find(c => c.id === Number(req.params.id));
-  if (!contact) return res.status(404).json({ message: "Contact not found" });
-  res.json(contact);
+// Lấy liên hệ theo ID
+exports.findOne = async (req, res, next) => {
+    try {
+        const contactService = new ContactService(MongoDB.client);
+        const document = await contactService.findById(req.params.id);
+
+        if (!document) {
+            return next(new ApiError(404, "Contact not found"));
+        }
+
+        return res.json(document);
+    } catch (error) {
+        return next(error);
+    }
 };
 
 // Cập nhật liên hệ
-exports.update = (req, res) => {
-  const contact = contacts.find(c => c.id === Number(req.params.id));
-  if (!contact) return res.status(404).json({ message: "Contact not found" });
-  Object.assign(contact, req.body);
-  res.json(contact);
+exports.update = async (req, res, next) => {
+    if (Object.keys(req.body).length === 0) {
+        return next(new ApiError(400, "Data to update can not be empty"));
+    }
+
+    try {
+        const contactService = new ContactService(MongoDB.client);
+        const document = await contactService.update(req.params.id, req.body);
+
+        if (!document) {
+            return next(new ApiError(404, "Contact not found"));
+        }
+
+        return res.json({ message: "Contact was updated successfully" });
+    } catch (error) {
+        return next(error);
+    }
 };
 
 // Xóa một liên hệ
-exports.delete = (req, res) => {
-  const index = contacts.findIndex(c => c.id === Number(req.params.id));
-  if (index === -1) return res.status(404).json({ message: "Contact not found" });
-  contacts.splice(index, 1);
-  res.json({ message: "Contact deleted successfully" });
-};
+exports.delete = async (req, res, next) => {
+    try {
+        const contactService = new ContactService(MongoDB.client);
+        const document = await contactService.delete(req.params.id);
 
-// Xóa tất cả liên hệ
-exports.deleteAll = (req, res) => {
-  contacts = [];
-  res.json({ message: "All contacts deleted successfully" });
+        if (!document) {
+            return next(new ApiError(404, "Contact not found"));
+        }
+
+        return res.json({ message: "Contact was deleted successfully" });
+    } catch (error) {
+        return next(error);
+    }
 };
 
 // Lấy liên hệ yêu thích
-exports.findAllFavorite = (req, res) => {
-  res.json(contacts.filter(c => c.favorite === true));
+exports.findAllFavorite = async (req, res, next) => {
+    try {
+        const contactService = new ContactService(MongoDB.client);
+        const documents = await contactService.findFavorite();
+        return res.json(documents);
+    } catch (error) {
+        return next(error);
+    }
+};
+
+// Xóa tất cả liên hệ
+exports.deleteAll = async (req, res, next) => {
+    try {
+        const contactService = new ContactService(MongoDB.client);
+        const deletedCount = await contactService.deleteAll();
+
+        return res.json({
+            message: `${deletedCount} contacts were deleted successfully`,
+        });
+    } catch (error) {
+        return next(error);
+    }
 };
